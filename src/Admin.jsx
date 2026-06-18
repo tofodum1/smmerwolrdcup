@@ -5,6 +5,47 @@ const DISPLAY = { fontFamily: "'Cinzel', serif", letterSpacing: '0.04em' };
 const BODY_FONT = { fontFamily: "'Jost', sans-serif" };
 const TOKEN_KEY = 'swc-admin-token';
 
+const GROUPS = {
+  A: [
+    { name: 'Brazil', flag: '🇧🇷' },
+    { name: 'Germany', flag: '🇩🇪' },
+    { name: 'Japan', flag: '🇯🇵' },
+    { name: 'Nigeria', flag: '🇳🇬' },
+  ],
+  B: [
+    { name: 'Argentina', flag: '🇦🇷' },
+    { name: 'France', flag: '🇫🇷' },
+    { name: 'Mexico', flag: '🇲🇽' },
+    { name: 'Ghana', flag: '🇬🇭' },
+  ],
+  C: [
+    { name: 'USA', flag: '🇺🇸' },
+    { name: 'Spain', flag: '🇪🇸' },
+    { name: 'South Korea', flag: '🇰🇷' },
+    { name: 'Senegal', flag: '🇸🇳' },
+  ],
+  D: [
+    { name: 'Netherlands', flag: '🇳🇱' },
+    { name: 'Portugal', flag: '🇵🇹' },
+    { name: 'Morocco', flag: '🇲🇦' },
+    { name: 'Colombia', flag: '🇨🇴' },
+  ],
+};
+
+function getCountryStatus(countryName, regs) {
+  const paidSquad = regs.find((r) => r.country === countryName && r.type === 'squad' && r.status === 'paid');
+  if (paidSquad) return { status: 'squad', label: paidSquad.squad_name };
+
+  const paidSolo = regs.filter((r) => r.country === countryName && r.type === 'solo' && r.status === 'paid');
+  if (paidSolo.length >= 11) return { status: 'full-solo', count: paidSolo.length };
+  if (paidSolo.length > 0) return { status: 'filling', count: paidSolo.length };
+
+  const pendingHere = regs.filter((r) => r.country === countryName && r.status === 'awaiting_payment');
+  if (pendingHere.length > 0) return { status: 'pending', count: pendingHere.length };
+
+  return { status: 'open' };
+}
+
 export default function Admin() {
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || '');
   const [password, setPassword] = useState('');
@@ -245,6 +286,8 @@ export default function Admin() {
           <StatCard label="Fees Collected" value={`$${totalCollected}`} />
         </div>
 
+        <CountryBoard registrations={registrations} />
+
         <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-[#F2D879]" style={DISPLAY}>All Registrations</h2>
@@ -348,6 +391,45 @@ export default function Admin() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function CountryBoard({ registrations }) {
+  const countriesBooked = Object.values(GROUPS).flat().filter((c) => {
+    const st = getCountryStatus(c.name, registrations).status;
+    return st === 'squad' || st === 'full-solo';
+  }).length;
+  const countriesOpen = 16 - countriesBooked;
+
+  return (
+    <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-bold text-[#F2D879]" style={DISPLAY}>Country Board</h2>
+        <span className="text-xs text-[#F6F1E4]/50">{countriesBooked} booked · {countriesOpen} open</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {Object.entries(GROUPS).map(([groupKey, countries]) => (
+          <div key={groupKey} className="border border-[#D4AF37]/20 rounded-lg p-3">
+            <div className="text-xs font-bold uppercase tracking-wider text-[#F6F1E4]/40 mb-2">Group {groupKey}</div>
+            <div className="space-y-1.5">
+              {countries.map((c) => {
+                const st = getCountryStatus(c.name, registrations);
+                return (
+                  <div key={c.name} className="flex items-center justify-between text-sm rounded-md px-2 py-1.5 bg-[#0C0C0E]">
+                    <span className="flex items-center gap-2"><span>{c.flag}</span>{c.name}</span>
+                    {st.status === 'squad' && <span className="text-[#D4AF37] font-medium text-xs truncate max-w-[140px]">{st.label}</span>}
+                    {st.status === 'full-solo' && <span className="text-[#D4AF37] font-medium text-xs">Full (solo)</span>}
+                    {st.status === 'filling' && <span className="text-[#F2D879] font-medium text-xs">{st.count}/11 solo</span>}
+                    {st.status === 'pending' && <span className="text-[#F6F1E4]/50 font-medium text-xs">{st.count} pending</span>}
+                    {st.status === 'open' && <span className="text-[#F6F1E4]/30 text-xs uppercase font-semibold">Open</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
