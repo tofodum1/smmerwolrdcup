@@ -38,18 +38,30 @@ export default async function handler(req, res) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const displayName = registration.type === 'squad' ? registration.squad_name : registration.player_name;
   const isPaid = registration.status === 'paid';
+  const isSquad = registration.type === 'squad';
 
   const subject = isPaid
     ? "You're confirmed for the Summer World Cup!"
     : 'Summer World Cup — payment details';
+
+  let confirmedBody;
+  if (isSquad) {
+    confirmedBody = registration.country
+      ? `<p>This is the country you'll be representing: <strong>${registration.country}</strong>${registration.group_key ? ` (Group ${registration.group_key})` : ''}.</p>`
+      : `<p>Your country assignment will be sent separately.</p>`;
+  } else {
+    confirmedBody = registration.country
+      ? `<p>You have been placed on <strong>${registration.country}</strong>${registration.group_key ? ` (Group ${registration.group_key})` : ''}.</p>`
+      : `<p>We'll follow up shortly with your team placement.</p>`;
+  }
 
   const html = isPaid
     ? `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color:#0C0C0E;">You're confirmed! ⚽</h2>
         <p>Hi ${displayName || 'there'},</p>
-        <p>Your registration and payment for the Summer World Cup are confirmed.</p>
-        ${registration.country ? `<p>Your team will represent <strong>${registration.country}</strong>${registration.group_key ? ` in Group ${registration.group_key}` : ''}.</p>` : ''}
+        <p>This is confirmation that you have paid for the Summer World Cup.</p>
+        ${confirmedBody}
         <p>See you on the pitch!</p>
       </div>
     `
