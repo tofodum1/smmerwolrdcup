@@ -30,7 +30,27 @@ async function findOpenCountryForSolo(supabase) {
   });
 
   if (eligible.length === 0) return null;
-  return eligible[Math.floor(Math.random() * eligible.length)];
+
+  // Sequential fill: prefer a country that already has solo players in it
+  // (fill it up completely) before moving on to a fresh, empty country.
+  // This keeps fully-open countries available longer for squad builders who
+  // want to register a complete 11-player team together.
+  const alreadyFilling = eligible
+    .map((c) => ({
+      ...c,
+      soloCount: paidRegs.filter((r) => r.country === c.name && r.type === 'solo').length,
+    }))
+    .filter((c) => c.soloCount > 0)
+    .sort((a, b) => b.soloCount - a.soloCount); // most-filled first
+
+  if (alreadyFilling.length > 0) {
+    return alreadyFilling[0];
+  }
+
+  // No country currently has any solo players yet -- start a new one.
+  // Use the order countries are defined in (Group A through D, in list
+  // order) so placement is deterministic and predictable rather than random.
+  return eligible[0];
 }
 
 export default async function handler(req, res) {
@@ -87,4 +107,6 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ registration: data });
 }
+
+
 
