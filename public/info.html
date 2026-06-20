@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Summer World Cup — Event Info</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0C0C0E;
+    --charcoal:#17171B;
+    --gold:#D4AF37;
+    --gold-light:#F2D879;
+    --cream:#F6F1E4;
+    --maroon:#5C1A1A;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:#000;
+    font-family:'Jost', sans-serif;
+    display:flex;
+    justify-content:center;
+    padding:32px 16px;
+  }
+  .flyer{
+    width:100%;
+    max-width:760px;
+    background:var(--black);
+    box-shadow:0 30px 90px rgba(0,0,0,0.7);
+    overflow:hidden;
+    position:relative;
+    color:var(--cream);
+    border:1px solid rgba(212,175,55,0.25);
+  }
+
+  .header{
+    position:relative;
+    padding:48px 32px 30px;
+    text-align:center;
+    background:radial-gradient(ellipse at top, rgba(212,175,55,0.18), transparent 65%);
+  }
+  .eyebrow{
+    position:relative;
+    font-weight:600;
+    letter-spacing:0.3em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--gold-light);
+    margin-bottom:18px;
+  }
+  .ball-svg{
+    position:relative;
+    width:60px;
+    height:60px;
+    margin:0 auto 16px;
+    display:block;
+    filter:drop-shadow(0 8px 18px rgba(0,0,0,0.5));
+  }
+  .title{
+    position:relative;
+    font-family:'Cinzel',serif;
+    text-transform:uppercase;
+    line-height:1.05;
+    color:var(--cream);
+  }
+  .title .line1{
+    font-size:clamp(16px,3.6vw,20px);
+    letter-spacing:0.28em;
+    display:block;
+    font-weight:600;
+    color:var(--gold-light);
+  }
+  .title .line2{
+    font-size:clamp(28px,6.4vw,42px);
+    display:block;
+    font-weight:800;
+    margin-top:8px;
+    background:linear-gradient(180deg, var(--gold-light), var(--gold));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .title .line3{
+    display:block;
+    margin-top:8px;
+    font-size:clamp(13px,2.6vw,16px);
+    font-weight:500;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:rgba(246,241,228,0.6);
+  }
+
+  .scoreboard{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    background:var(--charcoal);
+    margin:0 20px;
+    border-radius:4px;
+    overflow:hidden;
+    border:1px solid rgba(212,175,55,0.3);
+    transform:translateY(-4px);
+  }
+  .stat{
+    padding:16px 6px;
+    text-align:center;
+    border-right:1px solid rgba(212,175,55,0.2);
+  }
+  .stat:last-child{border-right:none;}
+  .stat.prize{ background:var(--gold); }
+  .stat .num{
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:clamp(15px,3.6vw,21px);
+    color:var(--gold-light);
+  }
+  .stat.prize .num{ color:var(--black); }
+  .stat .lbl{
+    margin-top:6px;
+    font-size:clamp(7px,1.3vw,9px);
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:rgba(246,241,228,0.6);
+  }
+  .stat.prize .lbl{ color:rgba(12,12,14,0.7); }
+
+  .section{ padding:34px 32px 8px; }
+  .section h2{
+    font-family:'Cinzel',serif;
+    text-transform:uppercase;
+    font-weight:700;
+    font-size:clamp(17px,3.4vw,24px);
+    letter-spacing:0.06em;
+    text-align:center;
+    margin-bottom:20px;
+    color:var(--gold-light);
+  }
+
+  .info-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .info-card{
+    background:var(--charcoal);
+    border:1px solid rgba(212,175,55,0.2);
+    border-radius:6px;
+    padding:14px 16px;
+  }
+  .info-card .k{
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:4px;
+  }
+  .info-card .v{
+    font-size:14px;
+    font-weight:500;
+    color:var(--cream);
+  }
+
+  .flow{
+    display:flex;
+    flex-direction:column;
+    gap:0;
+    margin-top:4px;
+  }
+  .flow .step{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    padding:14px 0;
+    border-bottom:1px solid rgba(212,175,55,0.15);
+  }
+  .flow .step:last-child{ border-bottom:none; }
+  .flow .step .num{
+    font-family:'Cinzel',serif;
+    font-size:20px;
+    font-weight:700;
+    color:var(--gold);
+    line-height:1;
+    min-width:28px;
+  }
+  .flow .step .txt strong{
+    display:block;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    font-size:13px;
+    color:var(--cream);
+    margin-bottom:3px;
+    font-weight:600;
+  }
+  .flow .step .txt span{
+    font-size:13px;
+    color:rgba(246,241,228,0.6);
+    font-weight:400;
+  }
+
+  .points-row{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-top:18px;
+  }
+  .points-row .pt{
+    text-align:center;
+    background:var(--charcoal);
+    border:1px solid rgba(212,175,55,0.2);
+    border-radius:6px;
+    padding:12px 6px;
+  }
+  .points-row .pt .num{
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:18px;
+    color:var(--gold-light);
+  }
+  .points-row .pt .lbl{
+    margin-top:4px;
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:rgba(246,241,228,0.6);
+  }
+
+  .rules ul{
+    list-style:none;
+    display:grid;
+    gap:8px;
+    margin-top:4px;
+  }
+  .rules li{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:13px;
+    font-weight:500;
+    color:var(--cream);
+    background:var(--charcoal);
+    border:1px solid rgba(212,175,55,0.2);
+    border-radius:4px;
+    padding:11px 14px;
+    line-height:1.4;
+  }
+  .rules li::before{
+    content:"★";
+    font-size:12px;
+    flex-shrink:0;
+    color:var(--gold);
+    margin-top:1px;
+  }
+
+  .kickoff{
+    text-align:center;
+    padding:24px 24px;
+    margin-top:32px;
+    background:linear-gradient(90deg, var(--maroon), var(--charcoal));
+    border-top:1px solid rgba(212,175,55,0.25);
+    border-bottom:1px solid rgba(212,175,55,0.25);
+  }
+  .kickoff .when{
+    font-family:'Cinzel',serif;
+    text-transform:uppercase;
+    font-weight:700;
+    color:var(--gold-light);
+    font-size:clamp(15px,3.2vw,20px);
+    letter-spacing:0.06em;
+  }
+  .kickoff .where{
+    margin-top:6px;
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:rgba(246,241,228,0.7);
+  }
+
+  .stub{
+    margin:30px 24px 32px;
+    background:var(--charcoal);
+    border:1px solid var(--gold);
+    border-radius:6px;
+    padding:26px 20px;
+    text-align:center;
+  }
+  .stub .admit{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.3em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:10px;
+  }
+  .stub h3{
+    font-family:'Cinzel',serif;
+    text-transform:uppercase;
+    font-weight:700;
+    font-size:clamp(18px,3.6vw,24px);
+    letter-spacing:0.04em;
+    margin-bottom:14px;
+    color:var(--cream);
+  }
+  .stub .qr-wrap{
+    display:block;
+    width:130px;
+    background:var(--cream);
+    border-radius:6px;
+    padding:9px;
+    margin:8px auto 12px;
+  }
+  .stub .qr-wrap svg{
+    display:block;
+    width:130px;
+    height:130px;
+  }
+  .stub .placeholder{
+    display:inline-block;
+    border:1px solid rgba(212,175,55,0.4);
+    border-radius:4px;
+    padding:9px 16px;
+    font-size:12px;
+    font-weight:500;
+    letter-spacing:0.04em;
+    margin:4px 6px;
+    color:rgba(246,241,228,0.85);
+  }
+  .stub .note{
+    margin-top:12px;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:rgba(246,241,228,0.45);
+  }
+
+  @media (max-width:480px){
+    .header{ padding:36px 20px 22px; }
+    .section{ padding-left:20px; padding-right:20px; }
+    .scoreboard{ margin:0 12px; transform:translateY(-2px); }
+    .info-grid{ grid-template-columns:1fr; }
+    .stub{ margin:24px 16px 28px; }
+  }
+</style>
+</head>
+<body>
+  <a href="https://smmercup.cc" style="text-decoration:none; display:block;">
+  <div class="flyer">
+    <div class="header">
+      <div class="eyebrow">7-a-side · Championship Series</div>
+      <svg class="ball-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="48" fill="#F6F1E4" stroke="#0C0C0E" stroke-width="3"/>
+        <polygon points="50,28 65,40 59,60 41,60 35,40" fill="#0C0C0E"/>
+        <path d="M50,28 L50,4" stroke="#0C0C0E" stroke-width="3" fill="none"/>
+        <path d="M65,40 L92,32" stroke="#0C0C0E" stroke-width="3" fill="none"/>
+        <path d="M59,60 L75,90" stroke="#0C0C0E" stroke-width="3" fill="none"/>
+        <path d="M41,60 L25,90" stroke="#0C0C0E" stroke-width="3" fill="none"/>
+        <path d="M35,40 L8,32" stroke="#0C0C0E" stroke-width="3" fill="none"/>
+      </svg>
+      <div class="title">
+        <span class="line1">Summer</span>
+        <span class="line2">World Cup</span>
+        <span class="line3">Tournament Info</span>
+      </div>
+    </div>
+
+    <div class="scoreboard">
+      <div class="stat"><div class="num">7v7</div><div class="lbl">Match Format</div></div>
+      <div class="stat"><div class="num">$50</div><div class="lbl">Entry / Player</div></div>
+      <div class="stat prize"><div class="num">$3,000</div><div class="lbl">Grand Prize</div></div>
+    </div>
+
+    <div class="section">
+      <h2>Event Details</h2>
+      <div class="info-grid">
+        <div class="info-card"><div class="k">Tournament Hours</div><div class="v">9:00 AM – 8:00 PM</div></div>
+        <div class="info-card"><div class="k">Players Per Team</div><div class="v">11</div></div>
+        <div class="info-card"><div class="k">Match Length</div><div class="v">20 min halves · 5 min halftime</div></div>
+        <div class="info-card"><div class="k">Total Match Time</div><div class="v">45 minutes</div></div>
+        <div class="info-card"><div class="k">Fields</div><div class="v">3 fields running simultaneously</div></div>
+        <div class="info-card"><div class="k">Groups</div><div class="v">4 groups of 4 teams</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Tournament Format</h2>
+      <div class="flow">
+        <div class="step">
+          <div class="num">I</div>
+          <div class="txt"><strong>Group Stage</strong><span>Each team plays 3 group-stage matches.</span></div>
+        </div>
+        <div class="step">
+          <div class="num">II</div>
+          <div class="txt"><strong>Advance</strong><span>Top 2 teams from each group move on to the knockout stage.</span></div>
+        </div>
+        <div class="step">
+          <div class="num">III</div>
+          <div class="txt"><strong>Knockout Stage</strong><span>Quarterfinals → Semifinals → Final, with an optional third-place match. Knockout play begins in the afternoon.</span></div>
+        </div>
+      </div>
+      <div class="points-row">
+        <div class="pt"><div class="num">3 PTS</div><div class="lbl">Win</div></div>
+        <div class="pt"><div class="num">1 PT</div><div class="lbl">Draw</div></div>
+        <div class="pt"><div class="num">0 PTS</div><div class="lbl">Loss</div></div>
+      </div>
+    </div>
+
+    <div class="section rules">
+      <h2>Rules</h2>
+      <ul>
+        <li>Check-in by 9:00 AM sharp — no tolerance for late arrivals. Late teams forfeit their first match.</li>
+        <li>Referee decisions are final.</li>
+        <li>Shin guards recommended.</li>
+        <li>No dangerous slide tackles.</li>
+        <li>Yellow card accumulation may result in suspension.</li>
+        <li>Tied knockout matches go to extra time, then penalties if necessary.</li>
+      </ul>
+    </div>
+
+    <div class="kickoff">
+      <div class="when">Kickoff · Mid-July 2026</div>
+      <div class="where">Exact date &amp; location — coming soon</div>
+    </div>
+
+    <div class="stub">
+      <div class="admit">Admit One Squad</div>
+      <h3>Register Your Team</h3>
+      <div class="qr-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27 27" width="100%" height="100%"><rect width="27" height="27" fill="#FFFDF7"/><rect x="1" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="1" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="2" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="3" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="4" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="5" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="6" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="7" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="8" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="8" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="8" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="9" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="8" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="10" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="11" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="8" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="12" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="8" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="13" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="14" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="15" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="16" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="8" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="17" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="18" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="12" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="19" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="20" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="10" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="21" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="22" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="13" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="18" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="23" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="16" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="20" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="21" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="23" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="24" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="24" width="1" height="1" fill="#0A1F1A"/><rect x="1" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="2" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="3" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="4" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="5" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="6" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="7" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="9" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="11" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="14" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="15" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="17" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="19" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="22" y="25" width="1" height="1" fill="#0A1F1A"/><rect x="25" y="25" width="1" height="1" fill="#0A1F1A"/></svg></div>
+      <div class="placeholder">smmercup.cc</div>
+      <div class="placeholder">Follow @worldcupsmmer on IG</div>
+      <div class="placeholder">smmerworldcup@gmail.com</div>
+      <div class="note">Spots limited — 16 squads total</div>
+    </div>
+  </div>
+  </a>
+</body>
+</html>
