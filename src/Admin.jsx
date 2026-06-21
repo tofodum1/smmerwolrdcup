@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Lock, RefreshCw, Trash2, AlertCircle, Trophy, ShieldCheck, CheckCircle2, Mail, Undo2 } from 'lucide-react';
-
-const DISPLAY = { fontFamily: "'Cinzel', serif", letterSpacing: '0.04em' };
-const BODY_FONT = { fontFamily: "'Jost', sans-serif" };
-const TOKEN_KEY = 'swc-admin-token';
+import {
+  CheckCircle2, Trophy, Users, Shuffle,
+  ArrowRight, ArrowLeft, AlertCircle, MapPin, Clock
+} from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 const GROUPS = {
   A: [
@@ -32,422 +32,560 @@ const GROUPS = {
   ],
 };
 
+const ALL_COUNTRIES = Object.entries(GROUPS).flatMap(([g, list]) => list.map((c) => ({ ...c, group: g })));
+
+const FEE_SOLO = 50;
+const FEE_SQUAD = 550;
+
+const SQUAD_STEPS = ['Squad Info', 'Players', 'Pick Country', 'Done'];
+const SOLO_STEPS = ['Your Info', 'Done'];
+const DISPLAY = { fontFamily: "'Cinzel', serif", letterSpacing: '0.04em' };
+const BODY_FONT = { fontFamily: "'Jost', sans-serif" };
+
+// A country only counts as "taken" once a squad registration for it has
+// actually been marked paid. Unpaid registrations don't block others --
+// the organizer resolves any overlap manually if two people pick the same
+// country before either pays.
 function getCountryStatus(countryName, regs) {
   const paidSquad = regs.find((r) => r.country === countryName && r.type === 'squad' && r.status === 'paid');
-  if (paidSquad) return { status: 'squad', label: paidSquad.squad_name };
+  if (paidSquad) return { status: 'taken', squadName: paidSquad.squad_name };
 
-  const paidSolo = regs.filter((r) => r.country === countryName && r.type === 'solo' && r.status === 'paid');
-  if (paidSolo.length >= 11) return { status: 'full-solo', count: paidSolo.length };
-  if (paidSolo.length > 0) return { status: 'filling', count: paidSolo.length };
+  const paidSoloCount = regs.filter((r) => r.country === countryName && r.type === 'solo' && r.status === 'paid').length;
+  if (paidSoloCount >= 11) return { status: 'taken', squadName: null };
+  if (paidSoloCount > 0) return { status: 'filling', count: paidSoloCount };
 
-  const pendingHere = regs.filter((r) => r.country === countryName && r.status === 'awaiting_payment');
-  if (pendingHere.length > 0) return { status: 'pending', count: pendingHere.length };
+  const pendingCount = regs.filter((r) => r.country === countryName && r.status === 'awaiting_payment').length;
+  if (pendingCount > 0) return { status: 'pending', count: pendingCount };
 
-  return { status: 'open' };
+  return { status: 'open', count: 0 };
 }
 
-export default function Admin() {
-  const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || '');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [loggingIn, setLoggingIn] = useState(false);
-
+export default function App() {
+  const [mode, setMode] = useState(null); // null | 'squad' | 'solo'
+  const [step, setStep] = useState(1);
   const [registrations, setRegistrations] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [actionError, setActionError] = useState('');
-  const [actionNote, setActionNote] = useState('');
-  const [confirmAll, setConfirmAll] = useState(false);
-  const [busyId, setBusyId] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const loadRegistrations = useCallback(async (tok) => {
-    setLoading(true);
-    setActionError('');
+  const [squadForm, setSquadForm] = useState({ squadName: '', captainName: '', contact: '', email: '' });
+  const [players, setPlayers] = useState(Array(11).fill(''));
+  const [soloForm, setSoloForm] = useState({ playerName: '', contact: '', email: '' });
+  const [chosenCountry, setChosenCountry] = useState(null); // { name, group }
+  const [completedInfo, setCompletedInfo] = useState(null);
+
+  const loadData = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: tok }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 401) {
-          sessionStorage.removeItem(TOKEN_KEY);
-          setToken('');
-        }
-        throw new Error(data.error || 'Failed to load registrations');
-      }
-      setRegistrations(data.registrations || []);
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('id, type, squad_name, country, group_key, status')
+        .order('registered_at', { ascending: true });
+      if (error) throw error;
+      setRegistrations(data || []);
     } catch (e) {
-      setActionError(e.message);
-    } finally {
-      setLoading(false);
+      setRegistrations([]);
     }
+    setLoaded(true);
   }, []);
 
+  useEffect(() => { loadData(); }, [loadData]);
+
   useEffect(() => {
-    if (token) loadRegistrations(token);
-  }, [token, loadRegistrations]);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Jost:wght@400;500;600;700&display=swap';
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, []);
 
-  const handleLogin = async () => {
-    setLoginError('');
-    setLoggingIn(true);
+  const updateSquadForm = (field, value) => setSquadForm((f) => ({ ...f, [field]: value }));
+  const updateSoloForm = (field, value) => setSoloForm((f) => ({ ...f, [field]: value }));
+  const updatePlayer = (i, value) => setPlayers((p) => p.map((v, idx) => (idx === i ? value : v)));
+
+  const canContinueSquad1 =
+    squadForm.squadName.trim() && squadForm.captainName.trim() && squadForm.contact.trim() && squadForm.email.trim();
+  const filledPlayerCount = players.filter((p) => p.trim().length > 0).length;
+  const canContinuePlayers = filledPlayerCount >= 10;
+  const canContinueSolo1 = soloForm.playerName.trim() && soloForm.contact.trim() && soloForm.email.trim();
+
+  const submitSquadRegistration = async (countryName, groupKey) => {
+    setFormError('');
+    setSubmitting(true);
     try {
-      const res = await fetch('/api/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const filledPlayers = players.map((p) => p.trim()).filter((p) => p.length > 0);
+      const { error } = await supabase.from('registrations').insert({
+        id,
+        type: 'squad',
+        squad_name: squadForm.squadName.trim(),
+        captain_name: squadForm.captainName.trim(),
+        contact: squadForm.contact.trim(),
+        email: squadForm.email.trim(),
+        roster: filledPlayers.length,
+        players: filledPlayers,
+        country: countryName,
+        group_key: groupKey,
+        amount_paid: FEE_SQUAD,
+        status: 'awaiting_payment',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Incorrect password');
-      sessionStorage.setItem(TOKEN_KEY, data.token);
-      setToken(data.token);
-      setPassword('');
+      if (error) throw error;
+      setChosenCountry({ name: countryName, group: groupKey });
+      setCompletedInfo({ ...squadForm });
+      setStep(4);
+      loadData();
     } catch (e) {
-      setLoginError(e.message);
+      setFormError('Could not save your registration. Please try again.');
     } finally {
-      setLoggingIn(false);
+      setSubmitting(false);
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem(TOKEN_KEY);
-    setToken('');
-    setRegistrations([]);
-  };
-
-  const handleDeleteOne = async (id) => {
-    setActionError('');
-    setActionNote('');
+  const submitSoloRegistration = async () => {
+    setFormError('');
+    setSubmitting(true);
     try {
-      const res = await fetch('/api/admin-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, id }),
+      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const { error } = await supabase.from('registrations').insert({
+        id,
+        type: 'solo',
+        player_name: soloForm.playerName.trim(),
+        contact: soloForm.contact.trim(),
+        email: soloForm.email.trim(),
+        amount_paid: FEE_SOLO,
+        status: 'awaiting_payment',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete registration');
-      setRegistrations((regs) => regs.filter((r) => r.id !== id));
+      if (error) throw error;
+      setCompletedInfo({ ...soloForm });
+      setStep(2);
+      loadData();
     } catch (e) {
-      setActionError(e.message);
-    }
-  };
-
-  const handleDeleteAll = async () => {
-    setActionError('');
-    setActionNote('');
-    try {
-      const res = await fetch('/api/admin-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, all: true }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to clear registrations');
-      setRegistrations([]);
-      setConfirmAll(false);
-    } catch (e) {
-      setActionError(e.message);
-    }
-  };
-
-  const handleTogglePaid = async (reg) => {
-    setActionError('');
-    setActionNote('');
-    setBusyId(reg.id);
-    try {
-      const goingToPaid = reg.status !== 'paid';
-      const res = await fetch('/api/admin-mark-paid', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, id: reg.id, paid: goingToPaid }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update registration');
-      setRegistrations((regs) => regs.map((r) => (r.id === reg.id ? data.registration : r)));
-    } catch (e) {
-      setActionError(e.message);
+      setFormError('Could not save your registration. Please try again.');
     } finally {
-      setBusyId(null);
+      setSubmitting(false);
     }
   };
 
-  const handleSendEmail = async (reg) => {
-    setActionError('');
-    setActionNote('');
-    setBusyId(reg.id);
-    try {
-      const res = await fetch('/api/admin-send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, id: reg.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send email');
-      setActionNote(`Email sent to ${reg.email}`);
-    } catch (e) {
-      setActionError(e.message);
-    } finally {
-      setBusyId(null);
-    }
+  const resetAll = () => {
+    setMode(null);
+    setStep(1);
+    setSquadForm({ squadName: '', captainName: '', contact: '', email: '' });
+    setPlayers(Array(11).fill(''));
+    setSoloForm({ playerName: '', contact: '', email: '' });
+    setChosenCountry(null);
+    setCompletedInfo(null);
+    setFormError('');
   };
 
-  if (!token) {
+  if (!loaded) {
     return (
-      <div className="min-h-screen bg-[#0C0C0E] flex items-center justify-center px-4" style={BODY_FONT}>
-        <div className="w-full max-w-sm bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-6 sm:p-8 space-y-4 text-center">
-          <div className="flex justify-center">
-            <div className="w-12 h-12 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] flex items-center justify-center">
-              <Lock size={22} />
-            </div>
-          </div>
-          <h2 className="text-lg font-bold text-[#F2D879]" style={DISPLAY}>Admin Access</h2>
-          <p className="text-sm text-[#F6F1E4]/60">
-            Enter the admin password to manage registrations.
-          </p>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleLogin(); }}
-            className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
-            placeholder="Password"
-          />
-          {loginError && <p className="text-sm text-[#F2D879]">{loginError}</p>}
-          <button
-            onClick={handleLogin}
-            disabled={loggingIn || !password}
-            className="w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold bg-[#D4AF37] text-[#0C0C0E] hover:bg-[#F2D879] transition disabled:opacity-50"
-          >
-            {loggingIn ? 'Checking…' : 'Unlock'}
-          </button>
-          <p className="text-xs text-[#F6F1E4]/30">
-            This page is not linked from the registration site. Keep this URL private.
-          </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0C0C0E]">
+        <div className="text-[#D4AF37]">Loading…</div>
       </div>
     );
   }
 
-  const squadCount = registrations.filter((r) => r.type === 'squad').length;
-  const soloCount = registrations.filter((r) => r.type === 'solo').length;
-  const paidCount = registrations.filter((r) => r.status === 'paid').length;
-  const totalCollected = registrations
-    .filter((r) => r.status === 'paid')
-    .reduce((s, r) => s + (r.amount_paid || 0), 0);
-
   return (
     <div className="min-h-screen bg-[#0C0C0E]" style={BODY_FONT}>
       <header className="bg-gradient-to-b from-[#17171B] to-[#0C0C0E] text-[#F6F1E4] px-4 py-6 sm:px-8 border-b border-[#D4AF37]/30">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-[#F2D879] text-xs font-semibold uppercase tracking-widest mb-2">
-              <Trophy size={14} /> Summer World Cup
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#F2D879]" style={DISPLAY}>Admin Dashboard</h1>
-            <p className="text-[#F6F1E4]/60 text-sm mt-1 flex items-center gap-1.5">
-              <ShieldCheck size={14} /> Private — not linked from the public site.
-            </p>
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center gap-2 text-[#F2D879] text-xs font-semibold uppercase tracking-widest mb-2">
+            <Trophy size={14} /> Summer World Cup
           </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => loadRegistrations(token)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-[#D4AF37] text-[#0C0C0E] hover:bg-[#F2D879] transition"
-            >
-              <RefreshCw size={14} /> Refresh
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-3 py-2 rounded-lg text-sm font-semibold border border-[#D4AF37]/40 text-[#F6F1E4] hover:border-[#D4AF37] transition"
-            >
-              Log out
-            </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#F2D879]" style={DISPLAY}>Squad Registration</h1>
+          <p className="text-[#F6F1E4]/70 text-sm mt-1">
+            $50 per player · 7v7 · 11-player squads · 4 groups of 4 · $3,000 grand prize
+          </p>
+          <div className="flex items-start gap-2 bg-[#D4AF37]/10 border border-[#D4AF37]/25 rounded-lg p-3 mt-4 text-xs text-[#F6F1E4]/70">
+            <Clock size={14} className="mt-0.5 shrink-0" />
+            <span>This registers your info and country pick. Payment is handled separately — we'll reach out with payment details after you submit.</span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-        {actionError && (
-          <div className="flex items-start gap-2 bg-[#5C1A1A]/30 border border-[#5C1A1A] text-[#F2D879] text-sm rounded-lg p-3">
-            <AlertCircle size={16} className="mt-0.5" />
-            <span>{actionError}</span>
-          </div>
+      <main className="max-w-3xl mx-auto px-4 sm:px-8 py-6">
+        {mode === null && (
+          <ChoiceScreen onChoose={(m) => { setMode(m); setStep(1); setFormError(''); }} />
         )}
-        {actionNote && (
-          <div className="flex items-start gap-2 bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#F6F1E4]/80 text-sm rounded-lg p-3">
-            <CheckCircle2 size={16} className="mt-0.5" />
-            <span>{actionNote}</span>
-          </div>
+        {mode === 'squad' && (
+          <SquadFlow
+            step={step}
+            setStep={setStep}
+            form={squadForm}
+            updateForm={updateSquadForm}
+            canContinue={canContinueSquad1}
+            players={players}
+            updatePlayer={updatePlayer}
+            canContinuePlayers={canContinuePlayers}
+            filledPlayerCount={filledPlayerCount}
+            registrations={registrations}
+            formError={formError}
+            submitting={submitting}
+            onSubmit={submitSquadRegistration}
+            chosenCountry={chosenCountry}
+            completedInfo={completedInfo}
+            onBack={resetAll}
+          />
         )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Squads" value={squadCount} />
-          <StatCard label="Solo Players" value={soloCount} />
-          <StatCard label="Paid" value={paidCount} />
-          <StatCard label="Fees Collected" value={`$${totalCollected}`} />
-        </div>
-
-        <CountryBoard registrations={registrations} />
-
-        <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-[#F2D879]" style={DISPLAY}>All Registrations</h2>
-            {!confirmAll ? (
-              <button
-                onClick={() => setConfirmAll(true)}
-                className="text-xs text-[#F6F1E4]/40 hover:text-[#F2D879] underline"
-              >
-                Clear all registrations
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-[#F2D879]">Delete everything?</span>
-                <button onClick={handleDeleteAll} className="px-2 py-1 rounded bg-[#5C1A1A] text-[#F6F1E4] font-semibold">
-                  Yes, delete all
-                </button>
-                <button onClick={() => setConfirmAll(false)} className="px-2 py-1 rounded border border-[#D4AF37]/30 text-[#F6F1E4]/70">
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
-
-          {loading ? (
-            <p className="text-sm text-[#F6F1E4]/40">Loading…</p>
-          ) : registrations.length === 0 ? (
-            <p className="text-sm text-[#F6F1E4]/40">No registrations yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[#F6F1E4]/40 text-xs uppercase border-b border-[#D4AF37]/20">
-                    <th className="py-2 pr-3">Type</th>
-                    <th className="py-2 pr-3">Name</th>
-                    <th className="py-2 pr-3">Email</th>
-                    <th className="py-2 pr-3">Phone</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-3">Country</th>
-                    <th className="py-2 pr-3">Group</th>
-                    <th className="py-2 pr-3">Fee</th>
-                    <th className="py-2 pr-3">Registered</th>
-                    <th className="py-2 pr-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrations.map((r) => (
-                    <tr key={r.id} className="border-b border-[#D4AF37]/10">
-                      <td className="py-2 pr-3">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.type === 'squad' ? 'bg-[#D4AF37]/20 text-[#F2D879]' : 'bg-[#5C1A1A]/40 text-[#F2D879]'}`}>
-                          {r.type === 'squad' ? 'Squad' : 'Solo'}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 font-medium text-[#F6F1E4]">{r.type === 'squad' ? r.squad_name : r.player_name}</td>
-                      <td className="py-2 pr-3 text-[#F6F1E4]/50">{r.email}</td>
-                      <td className="py-2 pr-3 text-[#F6F1E4]/50">{r.contact}</td>
-                      <td className="py-2 pr-3">
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td className="py-2 pr-3 text-[#F6F1E4]/50">{r.country || '—'}</td>
-                      <td className="py-2 pr-3 text-[#F6F1E4]/50">{r.group_key || '—'}</td>
-                      <td className="py-2 pr-3 text-[#F2D879] font-medium">${r.amount_paid}</td>
-                      <td className="py-2 pr-3 text-[#F6F1E4]/30">{new Date(r.registered_at).toLocaleString()}</td>
-                      <td className="py-2 pr-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleTogglePaid(r)}
-                            disabled={busyId === r.id}
-                            title={r.status === 'paid' ? 'Move back to awaiting payment' : 'Mark as paid'}
-                            className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded ${
-                              r.status === 'paid'
-                                ? 'border border-[#D4AF37]/30 text-[#F6F1E4]/70 hover:border-[#D4AF37]'
-                                : 'bg-[#D4AF37] text-[#0C0C0E] hover:bg-[#F2D879]'
-                            } disabled:opacity-50`}
-                          >
-                            {r.status === 'paid' ? <Undo2 size={12} /> : <CheckCircle2 size={12} />}
-                            {r.status === 'paid' ? 'Unpaid' : 'Mark Paid'}
-                          </button>
-                          <button
-                            onClick={() => handleSendEmail(r)}
-                            disabled={busyId === r.id}
-                            title="Send confirmation email"
-                            className="text-[#F6F1E4]/40 hover:text-[#F2D879] disabled:opacity-50"
-                          >
-                            <Mail size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteOne(r.id)}
-                            disabled={busyId === r.id}
-                            title="Delete this registration"
-                            className="text-[#F6F1E4]/30 hover:text-[#F2D879] disabled:opacity-50"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {mode === 'solo' && (
+          <SoloFlow
+            step={step}
+            form={soloForm}
+            updateForm={updateSoloForm}
+            canContinue={canContinueSolo1}
+            formError={formError}
+            submitting={submitting}
+            onSubmit={submitSoloRegistration}
+            completedInfo={completedInfo}
+            onBack={resetAll}
+          />
+        )}
       </main>
     </div>
   );
 }
 
-function CountryBoard({ registrations }) {
-  const countriesBooked = Object.values(GROUPS).flat().filter((c) => {
-    const st = getCountryStatus(c.name, registrations).status;
-    return st === 'squad' || st === 'full-solo';
-  }).length;
-  const countriesOpen = 16 - countriesBooked;
-
+function Stepper({ step, steps }) {
   return (
-    <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-bold text-[#F2D879]" style={DISPLAY}>Country Board</h2>
-        <span className="text-xs text-[#F6F1E4]/50">{countriesBooked} booked · {countriesOpen} open</span>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {Object.entries(GROUPS).map(([groupKey, countries]) => (
-          <div key={groupKey} className="border border-[#D4AF37]/20 rounded-lg p-3">
-            <div className="text-xs font-bold uppercase tracking-wider text-[#F6F1E4]/40 mb-2">Group {groupKey}</div>
-            <div className="space-y-1.5">
-              {countries.map((c) => {
-                const st = getCountryStatus(c.name, registrations);
-                return (
-                  <div key={c.name} className="flex items-center justify-between text-sm rounded-md px-2 py-1.5 bg-[#0C0C0E]">
-                    <span className="flex items-center gap-2"><span>{c.flag}</span>{c.name}</span>
-                    {st.status === 'squad' && <span className="text-[#D4AF37] font-medium text-xs truncate max-w-[140px]">{st.label}</span>}
-                    {st.status === 'full-solo' && <span className="text-[#D4AF37] font-medium text-xs">Full (solo)</span>}
-                    {st.status === 'filling' && <span className="text-[#F2D879] font-medium text-xs">{st.count}/11 solo</span>}
-                    {st.status === 'pending' && <span className="text-[#F6F1E4]/50 font-medium text-xs">{st.count} pending</span>}
-                    {st.status === 'open' && <span className="text-[#F6F1E4]/30 text-xs uppercase font-semibold">Open</span>}
-                  </div>
-                );
-              })}
+    <div className="flex items-center justify-between mb-6 gap-1">
+      {steps.map((label, i) => {
+        const n = i + 1;
+        const active = step === n;
+        const done = step > n;
+        return (
+          <div key={label} className="flex-1 flex flex-col items-center text-center">
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-1 ${
+                done ? 'bg-[#D4AF37] text-[#0C0C0E]' : active ? 'bg-[#F2D879] text-[#0C0C0E]' : 'bg-[#17171B] text-[#F6F1E4]/40 border border-[#D4AF37]/20'
+              }`}
+            >
+              {done ? <CheckCircle2 size={14} /> : n}
             </div>
+            <span className={`text-[10px] ${active ? 'text-[#D4AF37] font-semibold' : 'text-[#F6F1E4]/40'}`}>{label}</span>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    awaiting_payment: { label: 'Awaiting Payment', cls: 'bg-[#F6F1E4]/10 text-[#F6F1E4]/60' },
-    paid: { label: 'Paid', cls: 'bg-[#D4AF37]/25 text-[#F2D879]' },
-  };
-  const m = map[status] || { label: status, cls: 'bg-[#F6F1E4]/10 text-[#F6F1E4]/60' };
-  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>;
+function ChoiceScreen({ onChoose }) {
+  return (
+    <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5 sm:p-8 space-y-4">
+      <h2 className="text-lg font-bold text-[#F2D879] text-center" style={DISPLAY}>Have you already built your squad?</h2>
+      <button
+        onClick={() => onChoose('squad')}
+        className="w-full flex items-start gap-3 text-left border border-[#D4AF37]/25 rounded-xl p-4 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 transition"
+      >
+        <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/15 text-[#D4AF37] flex items-center justify-center shrink-0">
+          <Users size={20} />
+        </div>
+        <div>
+          <p className="font-bold text-[#F6F1E4]">Yes — I have a full squad</p>
+          <p className="text-sm text-[#F6F1E4]/60 mt-1">
+            As captain, list your 11 players and pick your country. Entry is $550 total ($50 × 11 players) — payment details follow after you submit.
+          </p>
+          <p className="text-xs text-[#F2D879] font-semibold mt-2">Minimum 10 players required to register.</p>
+        </div>
+      </button>
+      <button
+        onClick={() => onChoose('solo')}
+        className="w-full flex items-start gap-3 text-left border border-[#D4AF37]/25 rounded-xl p-4 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 transition"
+      >
+        <div className="w-10 h-10 rounded-lg bg-[#5C1A1A]/40 text-[#F2D879] flex items-center justify-center shrink-0">
+          <Shuffle size={20} />
+        </div>
+        <div>
+          <p className="font-bold text-[#F6F1E4]">No — I'm playing solo</p>
+          <p className="text-sm text-[#F6F1E4]/60 mt-1">
+            Don't have a squad yet? Submit your info for $50 and we'll place you on a team — payment details follow after you submit.
+          </p>
+        </div>
+      </button>
+    </div>
+  );
 }
 
-function StatCard({ label, value }) {
+function SquadFlow({
+  step, setStep, form, updateForm, canContinue, players, updatePlayer, canContinuePlayers,
+  registrations, formError, submitting, onSubmit, chosenCountry, completedInfo, onBack, filledPlayerCount,
+}) {
   return (
-    <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-4 text-center">
-      <div className="text-2xl font-bold text-[#F2D879]" style={DISPLAY}>{value}</div>
-      <div className="text-xs text-[#F6F1E4]/40 uppercase tracking-wide mt-1">{label}</div>
+    <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5 sm:p-8">
+      <button onClick={onBack} className="flex items-center gap-1 text-xs text-[#F6F1E4]/40 hover:text-[#F6F1E4]/70 mb-4">
+        <ArrowLeft size={12} /> Change registration type
+      </button>
+      <Stepper step={step} steps={SQUAD_STEPS} />
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[#D4AF37] mb-2">
+            <Users size={18} />
+            <h2 className="font-bold text-lg" style={DISPLAY}>Squad Information</h2>
+          </div>
+          {formError && (
+            <div className="flex items-start gap-2 bg-[#5C1A1A]/30 border border-[#5C1A1A] text-[#F2D879] text-sm rounded-lg p-3">
+              <AlertCircle size={16} className="mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Squad name</label>
+            <input
+              value={form.squadName}
+              onChange={(e) => updateForm('squadName', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="e.g. The Backyard Ballers"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Captain name</label>
+            <input
+              value={form.captainName}
+              onChange={(e) => updateForm('captainName', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="Full name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Captain phone</label>
+            <input
+              value={form.contact}
+              onChange={(e) => updateForm('contact', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="(555) 123-4567"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Captain email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => updateForm('email', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="you@email.com"
+            />
+            <p className="text-xs text-[#F6F1E4]/40 mt-1">We'll send payment details and your confirmation here.</p>
+          </div>
+          <button
+            disabled={!canContinue}
+            onClick={() => setStep(2)}
+            className={`w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition ${
+              canContinue ? 'bg-[#D4AF37] text-[#0C0C0E] hover:bg-[#F2D879]' : 'bg-[#0C0C0E] text-[#F6F1E4]/30 cursor-not-allowed border border-[#D4AF37]/15'
+            }`}
+          >
+            Continue to Players <ArrowRight size={16} />
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[#D4AF37] mb-2">
+            <Users size={18} />
+            <h2 className="font-bold text-lg" style={DISPLAY}>List Your Players</h2>
+          </div>
+          <p className="text-sm text-[#F6F1E4]/60">Enter the full name of every player on your squad, including yourself.</p>
+          <div className="flex items-start gap-2 bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#F6F1E4]/80 text-sm rounded-lg p-3">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span><strong className="text-[#F2D879]">Minimum 10 players required</strong> — 1 goalie, 7 on the field, and at least 2 substitutes. A full squad is 11 (3 substitutes). Nothing less than 10 will be accepted.</span>
+          </div>
+          <div className="space-y-2">
+            {players.map((p, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-6 text-xs text-[#F6F1E4]/40 text-right shrink-0">{i + 1}.</span>
+                <input
+                  value={p}
+                  onChange={(e) => updatePlayer(i, e.target.value)}
+                  className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                  placeholder={`Player ${i + 1} full name${i === 10 ? ' (optional)' : ''}`}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-[#F6F1E4]/40 text-center">{filledPlayerCount} of 11 players entered {filledPlayerCount >= 10 ? '✓' : `— need at least ${10 - filledPlayerCount} more`}</p>
+          <button
+            disabled={!canContinuePlayers}
+            onClick={() => setStep(3)}
+            className={`w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition ${
+              canContinuePlayers ? 'bg-[#D4AF37] text-[#0C0C0E] hover:bg-[#F2D879]' : 'bg-[#0C0C0E] text-[#F6F1E4]/30 cursor-not-allowed border border-[#D4AF37]/15'
+            }`}
+          >
+            Continue to Country Pick <ArrowRight size={16} />
+          </button>
+          <button onClick={() => setStep(1)} className="w-full flex items-center justify-center gap-2 text-sm text-[#F6F1E4]/50 hover:text-[#F6F1E4]/80">
+            <ArrowLeft size={14} /> Back
+          </button>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[#D4AF37] mb-2">
+            <MapPin size={18} />
+            <h2 className="font-bold text-lg" style={DISPLAY}>Pick Your Country</h2>
+          </div>
+          <p className="text-sm text-[#F6F1E4]/60">
+            Pick any country not already confirmed by a paid squad. If someone else also picks this country before paying, the organizer resolves it manually — paying first secures it.
+          </p>
+          {formError && (
+            <div className="flex items-start gap-2 bg-[#5C1A1A]/30 border border-[#5C1A1A] text-[#F2D879] text-sm rounded-lg p-3">
+              <AlertCircle size={16} className="mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
+          <div className="space-y-4">
+            {Object.entries(GROUPS).map(([groupKey, countries]) => (
+              <div key={groupKey}>
+                <div className="text-xs font-bold uppercase tracking-wider text-[#F6F1E4]/40 mb-2">Group {groupKey}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {countries.map((c) => {
+                    const st = getCountryStatus(c.name, registrations);
+                    const open = st.status !== 'taken';
+                    let tag = null;
+                    if (st.status === 'taken') tag = 'Taken';
+                    if (st.status === 'pending') tag = `${st.count} pending`;
+                    if (st.status === 'filling') tag = `${st.count}/11 solo`;
+                    return (
+                      <button
+                        key={c.name}
+                        disabled={!open || submitting}
+                        onClick={() => onSubmit(c.name, groupKey)}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition ${
+                          open
+                            ? 'border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 text-[#F6F1E4]'
+                            : 'border-[#F6F1E4]/10 bg-[#0C0C0E] text-[#F6F1E4]/30 cursor-not-allowed'
+                        }`}
+                      >
+                        <span className="text-lg">{c.flag}</span>
+                        <span className="font-medium">{c.name}</span>
+                        {tag && <span className="ml-auto text-xs uppercase font-semibold text-[#F6F1E4]/40">{tag}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          {submitting && <p className="text-sm text-[#F6F1E4]/50 text-center">Saving your registration…</p>}
+        </div>
+      )}
+
+      {step === 4 && chosenCountry && completedInfo && (
+        <div className="text-center space-y-4 py-4">
+          <div className="flex justify-center">
+            <div className="w-14 h-14 rounded-full bg-[#D4AF37]/15 flex items-center justify-center">
+              <CheckCircle2 className="text-[#D4AF37]" size={28} />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-[#F2D879]" style={DISPLAY}>Registration submitted!</h2>
+          <p className="text-[#F6F1E4]/60 text-sm">
+            <span className="font-semibold text-[#F6F1E4]">{completedInfo.squadName}</span> has requested{' '}
+            <span className="font-semibold text-[#F6F1E4]">{chosenCountry.name}</span> in Group {chosenCountry.group}.
+          </p>
+          <div className="bg-[#0C0C0E] border border-[#D4AF37]/25 rounded-lg p-4 text-sm text-left max-w-xs mx-auto space-y-1">
+            <div className="flex justify-between"><span className="text-[#F6F1E4]/50">Captain</span><span className="font-medium text-[#F6F1E4]">{completedInfo.captainName}</span></div>
+            <div className="flex justify-between"><span className="text-[#F6F1E4]/50">Email</span><span className="font-medium text-[#F6F1E4]">{completedInfo.email}</span></div>
+            <div className="flex justify-between"><span className="text-[#F6F1E4]/50">Total due</span><span className="font-medium text-[#F6F1E4]">${FEE_SQUAD}.00</span></div>
+          </div>
+          <p className="text-sm text-[#F6F1E4]/60">
+            We'll reach out to <span className="font-semibold text-[#F6F1E4]">{completedInfo.email}</span> with payment details. Your country pick is reserved but not final until payment is confirmed.
+          </p>
+          <button onClick={onBack} className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-[#D4AF37] hover:text-[#F2D879]">
+            Register another squad
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SoloFlow({ step, form, updateForm, canContinue, formError, submitting, onSubmit, completedInfo, onBack }) {
+  return (
+    <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5 sm:p-8">
+      <button onClick={onBack} className="flex items-center gap-1 text-xs text-[#F6F1E4]/40 hover:text-[#F6F1E4]/70 mb-4">
+        <ArrowLeft size={12} /> Change registration type
+      </button>
+      <Stepper step={step} steps={SOLO_STEPS} />
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[#D4AF37] mb-2">
+            <Shuffle size={18} />
+            <h2 className="font-bold text-lg" style={DISPLAY}>Your Info</h2>
+          </div>
+          <p className="text-sm text-[#F6F1E4]/60">
+            We'll place you on a squad that still needs players once your registration and payment are confirmed.
+          </p>
+          {formError && (
+            <div className="flex items-start gap-2 bg-[#5C1A1A]/30 border border-[#5C1A1A] text-[#F2D879] text-sm rounded-lg p-3">
+              <AlertCircle size={16} className="mt-0.5" />
+              <span>{formError}</span>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Your name</label>
+            <input
+              value={form.playerName}
+              onChange={(e) => updateForm('playerName', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="Full name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Phone</label>
+            <input
+              value={form.contact}
+              onChange={(e) => updateForm('contact', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="(555) 123-4567"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#F6F1E4]/80 mb-1">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => updateForm('email', e.target.value)}
+              className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+              placeholder="you@email.com"
+            />
+            <p className="text-xs text-[#F6F1E4]/40 mt-1">We'll send payment details and your confirmation here.</p>
+          </div>
+          <button
+            disabled={!canContinue || submitting}
+            onClick={onSubmit}
+            className={`w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition ${
+              canContinue && !submitting ? 'bg-[#D4AF37] text-[#0C0C0E] hover:bg-[#F2D879]' : 'bg-[#0C0C0E] text-[#F6F1E4]/30 cursor-not-allowed border border-[#D4AF37]/15'
+            }`}
+          >
+            {submitting ? 'Saving…' : 'Submit Registration'} {!submitting && <ArrowRight size={16} />}
+          </button>
+        </div>
+      )}
+
+      {step === 2 && completedInfo && (
+        <div className="text-center space-y-4 py-4">
+          <div className="flex justify-center">
+            <div className="w-14 h-14 rounded-full bg-[#D4AF37]/15 flex items-center justify-center">
+              <CheckCircle2 className="text-[#D4AF37]" size={28} />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-[#F2D879]" style={DISPLAY}>Registration submitted!</h2>
+          <p className="text-[#F6F1E4]/60 text-sm">
+            <span className="font-semibold text-[#F6F1E4]">{completedInfo.playerName}</span>, you're on the list.
+          </p>
+          <div className="bg-[#0C0C0E] border border-[#D4AF37]/25 rounded-lg p-4 text-sm text-left max-w-xs mx-auto space-y-1">
+            <div className="flex justify-between"><span className="text-[#F6F1E4]/50">Email</span><span className="font-medium text-[#F6F1E4]">{completedInfo.email}</span></div>
+            <div className="flex justify-between"><span className="text-[#F6F1E4]/50">Total due</span><span className="font-medium text-[#F6F1E4]">${FEE_SOLO}.00</span></div>
+          </div>
+          <p className="text-sm text-[#F6F1E4]/60">
+            We'll reach out to <span className="font-semibold text-[#F6F1E4]">{completedInfo.email}</span> with payment details, then confirm your team placement once payment is received.
+          </p>
+          <button onClick={onBack} className="inline-flex items-center gap-2 mt-2 text-sm font-semibold text-[#D4AF37] hover:text-[#F2D879]">
+            Register another
+          </button>
+        </div>
+      )}
     </div>
   );
 }
