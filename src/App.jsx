@@ -104,7 +104,8 @@ export default function App() {
 
   const canContinueSquad1 =
     squadForm.squadName.trim() && squadForm.captainName.trim() && squadForm.contact.trim() && squadForm.email.trim();
-  const canContinuePlayers = players.every((p) => p.trim().length > 0);
+  const filledPlayerCount = players.filter((p) => p.trim().length > 0).length;
+  const canContinuePlayers = filledPlayerCount >= 10;
   const canContinueSolo1 = soloForm.playerName.trim() && soloForm.contact.trim() && soloForm.email.trim();
 
   const submitSquadRegistration = async (countryName, groupKey) => {
@@ -112,6 +113,7 @@ export default function App() {
     setSubmitting(true);
     try {
       const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const filledPlayers = players.map((p) => p.trim()).filter((p) => p.length > 0);
       const { error } = await supabase.from('registrations').insert({
         id,
         type: 'squad',
@@ -119,8 +121,8 @@ export default function App() {
         captain_name: squadForm.captainName.trim(),
         contact: squadForm.contact.trim(),
         email: squadForm.email.trim(),
-        roster: 11,
-        players: players.map((p) => p.trim()),
+        roster: filledPlayers.length,
+        players: filledPlayers,
         country: countryName,
         group_key: groupKey,
         amount_paid: FEE_SQUAD,
@@ -214,6 +216,7 @@ export default function App() {
             players={players}
             updatePlayer={updatePlayer}
             canContinuePlayers={canContinuePlayers}
+            filledPlayerCount={filledPlayerCount}
             registrations={registrations}
             formError={formError}
             submitting={submitting}
@@ -303,7 +306,7 @@ function ChoiceScreen({ onChoose }) {
 
 function SquadFlow({
   step, setStep, form, updateForm, canContinue, players, updatePlayer, canContinuePlayers,
-  registrations, formError, submitting, onSubmit, chosenCountry, completedInfo, onBack,
+  registrations, formError, submitting, onSubmit, chosenCountry, completedInfo, onBack, filledPlayerCount,
 }) {
   return (
     <div className="bg-[#17171B] rounded-2xl shadow-sm border border-[#D4AF37]/30 p-5 sm:p-8">
@@ -378,9 +381,13 @@ function SquadFlow({
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-[#D4AF37] mb-2">
             <Users size={18} />
-            <h2 className="font-bold text-lg" style={DISPLAY}>List Your 11 Players</h2>
+            <h2 className="font-bold text-lg" style={DISPLAY}>List Your Players</h2>
           </div>
           <p className="text-sm text-[#F6F1E4]/60">Enter the full name of every player on your squad, including yourself.</p>
+          <div className="flex items-start gap-2 bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#F6F1E4]/80 text-sm rounded-lg p-3">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span><strong className="text-[#F2D879]">Minimum 10 players required</strong> — 1 goalie, 7 on the field, and at least 2 substitutes. A full squad is 11 (3 substitutes). Nothing less than 10 will be accepted.</span>
+          </div>
           <div className="space-y-2">
             {players.map((p, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -389,11 +396,12 @@ function SquadFlow({
                   value={p}
                   onChange={(e) => updatePlayer(i, e.target.value)}
                   className="w-full bg-[#0C0C0E] border border-[#D4AF37]/30 text-[#F6F1E4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
-                  placeholder={`Player ${i + 1} full name`}
+                  placeholder={`Player ${i + 1} full name${i === 10 ? ' (optional)' : ''}`}
                 />
               </div>
             ))}
           </div>
+          <p className="text-xs text-[#F6F1E4]/40 text-center">{filledPlayerCount} of 11 players entered {filledPlayerCount >= 10 ? '✓' : `— need at least ${10 - filledPlayerCount} more`}</p>
           <button
             disabled={!canContinuePlayers}
             onClick={() => setStep(3)}
