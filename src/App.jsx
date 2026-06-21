@@ -284,6 +284,7 @@ function ChoiceScreen({ onChoose }) {
           <p className="text-sm text-[#F6F1E4]/60 mt-1">
             As captain, list your 11 players and pick your country. Entry is $550 total ($50 × 11 players) — payment details follow after you submit.
           </p>
+          <p className="text-xs text-[#F2D879] font-semibold mt-2">Minimum 10 players required to register.</p>
         </div>
       </button>
       <button
@@ -588,4 +589,3 @@ function SoloFlow({ step, form, updateForm, canContinue, formError, submitting, 
     </div>
   );
 }
-
